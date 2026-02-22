@@ -3,12 +3,9 @@ import praw
 import os
 import pandas as pd
 import json
-import random
-import time
 from kafka import KafkaProducer
 from tqdm import tqdm
 from dotenv import load_dotenv
-from praw.models.util import stream_generator
 from prawcore.exceptions import RequestException, ResponseException, ServerError
 
 # Load environment variables
@@ -20,6 +17,7 @@ CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
 USER_AGENT = os.getenv("REDDIT_USER_AGENT")
 
 # Kafka settings
+# KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")  # Docker container name and port
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")  # Default localhost
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "reddit_posts")
 
@@ -74,7 +72,6 @@ posts_per_subreddit = min(MAX_POSTS_PER_CATEGORY, TOTAL_LIMIT // len(subreddits)
 a practical limit of ~1000 posts per category (hot, new, top, etc.) per subreddit.
 This means that the maximum total achievable with this approach is limited (~50k-60k),
 even if many subreddits and categories are used."""
-
 
 
 # Global counters

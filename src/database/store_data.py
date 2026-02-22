@@ -13,6 +13,7 @@ from src.preprocessing.clean_data import is_valid_text
 load_dotenv()
 
 # Kafka settings
+# KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")  # Docker container name and port
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")  # Default localhost
 KAFKA_TOPIC_RAW = os.getenv("KAFKA_TOPIC", "reddit_posts") # Topic for raw Reddit posts
 KAFKA_TOPIC_CLEANED = os.getenv("KAFKA_TOPIC_CLEANED", "cleaned_data") # Topic for cleaned data

@@ -1,125 +1,160 @@
-# version: '3.8'
+# =====================================================
+# Docker Compose - Sentiment Analysis Platform
+# =====================================================
+# Default behavior:
+# - Infrastructure services only (Kafka, PostgreSQL)
+# - Unified ML pipeline (main.py)
+# - Inference API
+#
+# Optional profiles:
+# - dev: enables pgAdmin and source code mounting
+# - gpu: enables GPU support for training
+# =====================================================
 
 services:
-  # Zookeeper service (required by Kafka)
+  # ---------------------------------------------------
+  # Zookeeper (required by Kafka)
+  # ---------------------------------------------------
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: bitnami/zookeeper:3.9.1-debian-12-r0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-    ports:
-      - "2181:2181"
+    expose:
+      - "2181"
 
-  # Kafka broker service
+
+  # ---------------------------------------------------
+  # Kafka broker
+  # ---------------------------------------------------
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: bitnami/kafka:3.7.0-debian-12-r0
     depends_on:
       - zookeeper
-    ports:
-      - "9092:9092"
+    expose:
+      - "9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092  # Use this for Docker networking
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092  # Use this for local development
+
+      # Internal communication inside the Docker network
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+
+      # Single broker setup (development & PoC friendly)
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
 
-# PostgreSQL database service
+  # ---------------------------------------------------
+  # PostgreSQL database
+  # ---------------------------------------------------
   postgres:
-    image: postgres:latest
+    image: bitnami/postgresql:16.3.0-debian-12-r0
     env_file:
       - .env
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
 
-# pgAdmin for database management
+  # ---------------------------------------------------
+  # pgAdmin (development only)
+  # ---------------------------------------------------
+  # This service is useful for local development and
+  # should NOT be enabled in production environments.
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:9.2
     depends_on:
       - postgres
-    ports:
-      - "5050:80"
     env_file:
       - .env
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+    profiles:
+      - dev
 
 
-# Producer service to send messages to Kafka
-  producer:
-    build: ./producer
-    depends_on:
-      - kafka
-    env_file:
-      - .env
-    environment:
-      KAFKA_BROKER: ${KAFKA_BROKER}
-      KAFKA_TOPIC: ${KAFKA_TOPIC}
-      REDDIT_API_KEY: ${REDDIT_CLIENT_SECRET}
-  
+  # producer:
+  #   build:
+  #     context: ./producer
+  #     dockerfile: Dockerfile
+  #   image: producer:latest  
+  #   container_name: producer
+  #   depends_on:
+  #     - zookeeper
+  #     - kafka
+  #   env_file:
+  #     - .env
 
-  # Consumer service to read messages from Kafka and store in PostgreSQL
-  consumer:
-    build: ./consumer
-    depends_on:
-      - kafka
-      - postgres
-    env_file:
-      - .env
-    environment:
-      KAFKA_BROKER: ${KAFKA_BROKER}
-      KAFKA_TOPIC: ${KAFKA_TOPIC}
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+  # consumer:
+  #   build:
+  #     context: ./consumer
+  #     dockerfile: Dockerfile
+  #   image: consumer:latest
+  #   container_name: consumer
+  #   depends_on:
+  #     - zookeeper
+  #     - kafka
+  #     - postgres
+  #   env_file:
+  #     - .env
 
-
- # Optional: Loader service to send data to BigQuery (currently commented)
   # bigquery_loader:
   #   build: ./bigquery_loader
   #   depends_on:
   #     - consumer
-  #   environment:
-  #     GOOGLE_APPLICATION_CREDENTIALS: /secrets/bq_credentials.json
-  #     PROJECT_ID: ${PROJECT_ID}
-  #     DATASET_ID: ${DATASET_ID}
+  #   env_file:
+  #     - .env
   #   volumes:
   #     - ./secrets:/secrets
 
 
-# Trainer service for model training
-  trainer:
+  # ---------------------------------------------------
+  # Unified ML Pipeline
+  # ---------------------------------------------------
+  # This container runs the entire pipeline:
+  # - Reddit data extraction
+  # - Kafka producer & consumer
+  # - Data cleaning & transformation
+  # - Model training and export
+  #
+  # All orchestration happens inside main.py
+  # ---------------------------------------------------
+  pipeline:
     build:
-      context: ./
+      context: .
       dockerfile: Dockerfile
+      # dockerfile: ./Dockerfile
       args:
-        USE_GPU: ${USE_GPU}    # Pass GPU usage as build argument
+        USE_GPU: true
+    image: sentiment_pipeline:latest
+    container_name: sentiment_pipeline
     depends_on:
       - kafka
       - postgres
     env_file:
       - .env
-    environment:
-      KAFKA_BROKER: ${KAFKA_BROKER}
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - .:/app
     command: ["python", "main.py"]
+
+    # -------------------------------------------------
+    # Profiles
+    # -------------------------------------------------
+    profiles:
+      - dev
+      - gpu
+
+    # -------------------------------------------------
+    # Dev Container support
+    # -------------------------------------------------
+    # In development, this volume allows live code
+    # synchronization with the host (VS Code Remote Containers)
+    # volumes:
+    #   - .:/app
+    
+
+    # -------------------------------------------------
+    # GPU support (training)
+    # -------------------------------------------------
     deploy:
       resources:
         reservations:
@@ -127,21 +162,34 @@ services:
             - capabilities: [gpu]
 
 
-# FastAPI application for inference
+  # ---------------------------------------------------
+  # Inference API (FastAPI)
+  # ---------------------------------------------------
+  # This service loads a trained model and exposes
+  # prediction endpoints for testing and production use
   inference_api:
     build:
       context: .
-      dockerfile: Dockerfile.api
+      dockerfile: fastapi_app/Dockerfile
+    image: sentiment_inference_api:latest
+    container_name: sentiment_inference_api
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+
+    # Expose API port (remove in pure production behind a gateway)
     ports:
-      - "8000:8000"
-    volumes:
-      - .:/app
+      - "8000:8000"  
+
     environment:
+      # Path where the trained model is stored inside the container
       MODEL_DIR: /app/Roberta_sentiment_model
 
-
+# =====================================================
+# Named volumes
+# =====================================================
 volumes:
   postgres_data:
   pgadmin_data:
-
 

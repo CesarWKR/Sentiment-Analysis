@@ -4,29 +4,24 @@ import os
 import logging
 from src.database.store_data import store_data
 from src.preprocessing.clean_data import process_kafka_messages
-from src.preprocessing.clean_data import process_and_store_data  # Import the function to clean and store data
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
 
-# # Kafka settings from docker-compose
-# KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
-# KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "reddit_posts")
-# GROUP_ID = "reddit_consumer_group"
+# # Kafka settings, select based on local or Docker
+# KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")  # For Docker
+KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")  # For local testing
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "reddit_posts")
+TOPIC_OUTPUT = os.getenv("TOPIC_OUTPUT", "cleaned_data")
+GROUP_ID = os.getenv("KAFKA_GROUP_ID", "reddit_consumer_group")
 
 
 logging.basicConfig(
     level=logging.INFO, 
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
-# Kafka settings
-KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
-KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "reddit_posts")
-TOPIC_OUTPUT = os.getenv("TOPIC_OUTPUT", "cleaned_data")
-GROUP_ID = os.getenv("KAFKA_GROUP_ID", "reddit_consumer_group")
 
 consumer = KafkaConsumer(
     KAFKA_TOPIC,

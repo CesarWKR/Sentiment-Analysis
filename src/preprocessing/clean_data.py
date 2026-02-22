@@ -16,6 +16,7 @@ nltk.download("stopwords", quiet=True)
 stop_words = set(stopwords.words("english"))  # English stopwords set
 
 # Kafka settings
+# KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")  # Docker container name and port
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")  # Default localhost
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "reddit_posts")  # Topic where raw data is published
 KAFKA_GROUP_ID = os.getenv("KAFKA_GROUP_ID", "cleaner_consumer_group")  # Group ID for Kafka consumer
