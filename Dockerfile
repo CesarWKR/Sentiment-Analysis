@@ -4,7 +4,7 @@
 # This stage installs all Python dependencies so they
 # can be reused in the final image without re-installing
 # them every time the code changes.
-FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS builder
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime AS builder
 
 
 # Set working directory
@@ -23,7 +23,7 @@ RUN pip install --upgrade pip \
 # Stage 2: Final runtime image
 # =========================
 
-FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 
 # Disable interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive 

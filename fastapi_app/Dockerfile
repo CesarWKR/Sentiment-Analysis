@@ -1,8 +1,8 @@
 # =========================
 # Stage 1: Builder
 # =========================
-# FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS builder
-FROM python:3.12.11-slim AS builder
+# FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime AS builder
+FROM python:3.12.12-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -32,8 +32,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # =========================
 # Stage 2: Final minimal image (no root)
 # =========================
-# FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime
-FROM python:3.12.11-slim
+# FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+FROM python:3.12.12-slim
 
 
 ENV DEBIAN_FRONTEND=noninteractive

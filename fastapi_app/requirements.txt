@@ -1,13 +1,16 @@
 fastapi==0.116.1
+langdetect==1.0.9
+libclang==18.1.1
 starlette==0.47.2
 pydantic==2.11.7
+pydantic-core==2.33.2
 annotated-types==0.7.0
 typing-inspection==0.4.1
-pydantic-core==2.33.2
+
 uvicorn[standard]==0.29.0
 transformers==4.50.0
 Jinja2==3.1.6
-
+sentencepiece==0.2.1
 
 # Uncomment only if don't use the container 
 # Select either CPU or GPU versions of the libraries
@@ -17,6 +20,6 @@ Jinja2==3.1.6
 # torchaudio==2.5.1+cpu
 
 # For GPU environment
-torch==2.5.1+cu121
-torchaudio==2.5.1+cu121
-torchvision==0.20.1+cu121
+torch==2.5.1+cu124
+torchaudio==2.5.1+cu124
+torchvision==0.20.1+cu124
