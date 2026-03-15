@@ -1,8 +1,14 @@
+# leer .env si existe; las asignaciones pasan a variables de make
+-include .env
+
+# asegurar que las variables se exportan al entorno de los comandos
+export DOCKER_USERNAME DOCKER_PASSWORD
+
 # Variables
-DOCKER_USER ?= $(shell echo $$DOCKER_USERNAME)
-DOCKER_PASS ?= $(shell echo $$DOCKER_PASSWORD)
+DOCKER_USERNAME ?= $(shell echo $$DOCKER_USERNAME)
+DOCKER_PASSWORD ?= $(shell echo $$DOCKER_PASSWORD)
 VERSION = latest
-SLIM_TAG = slim-$(VERSION)
+# SLIM_TAG = slim-$(VERSION)
 COMPOSE_FILE = docker-compose.yml
 ENV_FILE = .env
 
@@ -15,7 +21,7 @@ IMAGE_pipeline = sentiment_pipeline
 IMAGE_inference_api = sentiment_inference_api
 
 # Slim ONLY inference
-SLIM_SERVICES = inference_api
+# SLIM_SERVICES = inference_api
 
 
 #VERSION = latest
@@ -28,18 +34,18 @@ check-tools:
 
 
 # Validate
-ifndef DOCKER_USER
-$(error ❌ DOCKER_USER is undefined. Please set it as an environment variable or in the Makefile)
+ifndef DOCKER_USERNAME
+$(error ❌ DOCKER_USERNAME is undefined. Please set it as an environment variable or in the Makefile)
 endif
-ifndef DOCKER_PASS
-$(error ❌ DOCKER_PASS is undefined. Please set it as an environment variable or in the Makefile)
+ifndef DOCKER_PASSWORD
+$(error ❌ DOCKER_PASSWORD is undefined. Please set it as an environment variable or in the Makefile)
 endif
 
 
 # Docker login
 login:
-	@echo "🔑 Logging into DockerHub as $(DOCKER_USER)..."
-	@echo "$(DOCKER_PASS)" | docker login -u "$(DOCKER_USER)" --password-stdin
+	@echo "🔑 Logging into DockerHub as $(DOCKER_USERNAME)..."
+	@echo "$(DOCKER_PASSWORD)" | docker login -u "$(DOCKER_USERNAME)" --password-stdin
 	@echo "✅ Docker login successful."
 
 
@@ -67,19 +73,12 @@ down:
 
 # Optimize images with docker-slim
 slim:
-	@for service in $(SLIM_SERVICES); do \
-		image=$$(eval echo \$$(IMAGE_$$service)); \
-		if docker image inspect $$image:$(VERSION) >/dev/null 2>&1; then \
-			echo "⚡ Running docker-slim for: $$image:$(VERSION)"; \
-			docker-slim slim build \
-				--http-probe=false \
-				--exec-file=false \
-				--tag $$image:$(SLIM_TAG) \
-				$$image:$(VERSION); \
-		else \
-			echo "❌ Local image $$image:$(VERSION) not found. Skipping."; \
-		fi \
-	done
+	@image=$(IMAGE_inference_api); \
+	echo "⚡ Running docker-slim for: $$image:$(VERSION)"; \
+	docker-slim build \
+		--http-probe=false \
+		--tag $$image:$(SLIM_TAG) \
+		$$image:$(VERSION);
 
 
 # Clean up docker-slim temporary files
@@ -88,23 +87,19 @@ slim-clean:
 
 # Tag slim images for DockerHub
 tag:
-	@for service in $(SLIM_SERVICES); do \
-		image=$$(eval echo \$$(IMAGE_$$service)); \
-		echo "🏷️ Tagging $$image:$(SLIM_TAG)"; \
-		docker tag $$image:$(SLIM_TAG) $(DOCKER_USER)/$$image:$(SLIM_TAG); \
-	done
+	@image=$(IMAGE_inference_api); \
+	echo "🏷️ Tagging $$image:$(VERSION) as $(DOCKER_USERNAME)/$$image:$(VERSION)"; \
+	docker tag $$image:$(VERSION) $(DOCKER_USERNAME)/$$image:$(VERSION);
 
-# Push slim images to DockerHub
+# Push images to DockerHub
 push:
-	@for service in $(SLIM_SERVICES); do \
-		image=$$(eval echo \$$(IMAGE_$$service)); \
-		echo "🚀 Pushing $$image to DockerHub"; \
-		docker push $(DOCKER_USER)/$$image:$(SLIM_TAG); \
-	done
+	@image=$(IMAGE_inference_api); \
+	echo "🚀 Pushing $$image:$(VERSION) to DockerHub"; \
+	docker push $(DOCKER_USERNAME)/$$image:$(VERSION);
 
-# Complete workflow: Build + Slim + Tag + Push
-publish: check-tools build slim tag push
-	@echo "✅ Publishing: version $(SLIM_TAG)"
+# Complete workflow: Build + Tag + Push
+publish: check-tools build tag push
+	@echo "✅ Publishing: version $(VERSION)"
 
 
 # Check images
@@ -117,5 +112,5 @@ clean:
 		echo "🧼 Deleting images for $$service..."; \
 		docker rmi $$service:$(VERSION) || true; \
 		docker rmi $$service:$(SLIM_TAG) || true; \
-		docker rmi $(DOCKER_USER)/$$service:$(SLIM_TAG) || true; \
+		docker rmi $(DOCKER_USERNAME)/$$service:$(VERSION) || true; \
 	done
