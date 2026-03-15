@@ -4,12 +4,16 @@
 # This stage installs all Python dependencies so they
 # can be reused in the final image without re-installing
 # them every time the code changes.
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime AS builder
+FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime AS builder
 
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update system patches and install build dependencies
+RUN apt-get update && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
-
 
 # Copy only dependency definitions first (better cache usage)
 COPY requirements.txt .
@@ -23,10 +27,14 @@ RUN pip install --upgrade pip \
 # Stage 2: Final runtime image
 # =========================
 
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
 
 # Disable interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive 
+
+# Update system patches and install build dependencies
+RUN apt-get update && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------
 # Create a non-root user for security and DevContainer
