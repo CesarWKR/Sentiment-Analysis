@@ -75,7 +75,9 @@ class TextInput(BaseModel):
 # FastAPI app
 app = FastAPI(title="Sentiment Analysis API", description="RoBERTa model for sentiment classification.", version="2.0.0")
 
-app.mount("/static", StaticFiles(directory="static"), name="static")   # Mount static files for serving CSS/JS
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static") # Mount static files for serving CSS/JS
+    
 templates = Jinja2Templates(directory="templates")   # Directory for HTML templates
 
 

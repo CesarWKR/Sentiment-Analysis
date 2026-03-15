@@ -8,18 +8,17 @@ annotated-types==0.7.0
 typing-inspection==0.4.1
 
 uvicorn[standard]==0.29.0
+torch==2.6.0
+# torchvision==0.21.0
+# torchaudio==2.6.0
+
 transformers==4.50.0
 Jinja2==3.1.6
 sentencepiece==0.2.1
+sacremoses
 
-# Uncomment only if don't use the container 
-# Select either CPU or GPU versions of the libraries
-# For CPU environment
-# torch==2.5.1+cpu
-# torchvision==0.20.1+cpu
-# torchaudio==2.5.1+cpu
 
 # For GPU environment
-torch==2.5.1+cu124
-torchaudio==2.5.1+cu124
-torchvision==0.20.1+cu124
+# torch==2.6.0+cu124
+# torchaudio==2.6.0+cu124
+# torchvision==0.21.0+cu124
