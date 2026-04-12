@@ -130,7 +130,7 @@ def get_class_weights(labels, num_classes):  # Function to compute class weights
     return torch.tensor(weights, dtype=torch.float)
 
 
-def load_data(data_source="cleaned"):
+def load_data(data_source="combined"):
     """
     Loads data from the database based on the specified source,
     applies label mapping, drops NaNs, and stores balanced and synthetic versions

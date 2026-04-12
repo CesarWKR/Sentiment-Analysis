@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score, f1_score,confusion_matrix, multilabe
 import seaborn as sns
 import matplotlib.pyplot as plt
 import sys
+import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from src.database.db_connection import connect_to_db
 from src.database.store_data import store_results_in_db
@@ -134,6 +135,26 @@ def evaluate_model():
     plt.xlabel("Predicted Labels")
     plt.ylabel("True Labels")
     plt.title("Confusion Matrix")
+    plt.show()
+
+    conf_matrix_norm = global_conf_matrix.astype("float") / np.maximum(
+        global_conf_matrix.sum(axis=1)[:, np.newaxis], 1
+    )
+
+    plt.figure(figsize=(6,5))
+    sns.heatmap(
+        conf_matrix_norm,
+        annot=True,
+        fmt=".2f", 
+        cmap="Blues",
+        xticklabels=LABELS,
+        yticklabels=LABELS
+    )
+
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title("Confusion Matrix (Normalized)")
+    plt.tight_layout()
     plt.show()
 
     # Multi-label confusion matrix for per-class metrics
