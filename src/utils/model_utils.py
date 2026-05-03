@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 def get_latest_model_path(models_dir="."):
     """Get the latest fine-tuned model directory."""
-    model_path = os.path.join(models_dir, "bert_sentiment_model") # Model path name
+    model_path = os.path.join(models_dir, "Roberta_sentiment_model") # Model path name
     return model_path if os.path.exists(model_path) else None # Check if the model file exists
 
 def update_latest_model(models_dir=".", target_dir="Roberta_sentiment_model_inference"):
