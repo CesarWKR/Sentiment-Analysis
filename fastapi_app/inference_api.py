@@ -29,15 +29,58 @@ tokenizer = RobertaTokenizer.from_pretrained(MODEL_PATH)
 model = RobertaForSequenceClassification.from_pretrained(MODEL_PATH).to(DEVICE)
 model.eval()
 
-print("🌎 Loading translation model...")
-TRANS_MODEL_NAME = "Helsinki-NLP/opus-mt-es-en"
-translator_tokenizer = MarianTokenizer.from_pretrained(TRANS_MODEL_NAME)
-translator_model = MarianMTModel.from_pretrained(TRANS_MODEL_NAME).to(DEVICE)
-translator_model.eval()
+translation_models = {}
+translation_tokenizers = {}
+
+def get_translation_model(lang: str):
+    """
+    Returns the correct translation model name for a given language.
+    """
+    model_map = {
+        "es": "Helsinki-NLP/opus-mt-es-en",
+        "fr": "Helsinki-NLP/opus-mt-fr-en",
+        "de": "Helsinki-NLP/opus-mt-de-en",
+        "it": "Helsinki-NLP/opus-mt-it-en",
+    }
+    if lang not in model_map:
+        return None
+
+    return model_map.get(lang, None)
+
+
+def load_translation_model(lang: str):
+    """
+    Load translation model and tokenizer dynamically and cache them.
+    """
+    model_name = get_translation_model(lang)
+
+    if model_name is None:
+        return None, None
+
+    # If already loaded, reuse it
+    if model_name in translation_models:
+        return translation_models[model_name], translation_tokenizers[model_name]
+
+    print(f"🌎 Loading translation model for '{lang}'...")
+
+    tokenizer = MarianTokenizer.from_pretrained(model_name)
+    model = MarianMTModel.from_pretrained(model_name).to(DEVICE)
+    model.eval()
+
+    translation_models[model_name] = model
+    translation_tokenizers[model_name] = tokenizer
+
+    return model, tokenizer
 
 # LANGUAGE DETECTION + TRANSLATION
-def translate_to_english(text: str) -> str:
-    tokens = translator_tokenizer(
+def translate_to_english(text: str, lang: str) -> str:
+    model, tokenizer = load_translation_model(lang)
+
+    if model is None:
+        print(f"⚠ No translation model available for language: {lang}")
+        return text  # fallback: return original text
+
+    tokens = tokenizer(
         text,
         return_tensors="pt",
         truncation=True,
@@ -45,12 +88,10 @@ def translate_to_english(text: str) -> str:
     ).to(DEVICE)
 
     with torch.no_grad():
-        translated = translator_model.generate(**tokens)
+        translated = model.generate(**tokens)
 
-    return translator_tokenizer.decode(
-        translated[0],
-        skip_special_tokens=True
-    )
+    return tokenizer.decode(translated[0], skip_special_tokens=True)
+
 
 def preprocess_text(text: str) -> str:
     try:
@@ -58,8 +99,8 @@ def preprocess_text(text: str) -> str:
         print(f"Detected language: {lang}")
 
         if lang != "en":
-            print("Translating to English...")
-            text = translate_to_english(text)
+            print(f"Translating from {lang} to English...")
+            text = translate_to_english(text, lang)
 
     except Exception as e:
         print(f"⚠ Language detection failed: {e}")
@@ -70,7 +111,7 @@ def preprocess_text(text: str) -> str:
 # Input model
 class TextInput(BaseModel):
     #text: constr(min_length=1, max_length=1000)
-    text: Annotated[str, StringConstraints(min_length=1, max_length=1000)]
+    text: Annotated[str, StringConstraints(min_length=1, max_length=500)]
 
 # FastAPI app
 app = FastAPI(title="Sentiment Analysis API", description="RoBERTa model for sentiment classification.", version="2.0.0")
@@ -83,11 +124,22 @@ templates = Jinja2Templates(directory="templates")   # Directory for HTML templa
 
 def predict_sentiment(text: str) -> dict:
     """Predict sentiment from raw text."""
+    MAX_TOKENS = 256
+
+    encoding_test = tokenizer(text, truncation=False, return_tensors="pt")
+    initial_token_count = len(encoding_test["input_ids"][0])
+
+    if initial_token_count > MAX_TOKENS:
+        raise ValueError(f"Text exceeds maximum token limit of {MAX_TOKENS}. Please shorten your input.")
+
     # Step 1: Detect language + translate if needed
     processed_text = preprocess_text(text)
 
     # Step 2: Tokenize for sentiment model
-    encoding = tokenizer(processed_text, truncation=True, padding="max_length", max_length=256, return_tensors="pt")
+    encoding = tokenizer(processed_text, truncation=True, padding="max_length", max_length=MAX_TOKENS, return_tensors="pt")
+
+    if len(encoding["input_ids"][0]) > MAX_TOKENS:
+         raise ValueError(f"Processed text exceeds {MAX_TOKENS} tokens. Please review the content.")
 
     input_ids = encoding["input_ids"].to(DEVICE)
     attention_mask = encoding["attention_mask"].to(DEVICE)
@@ -115,8 +167,11 @@ def analyze_sentiment(input_text: TextInput):
     try:
         prediction = predict_sentiment(input_text.text)
         return {"input": input_text.text, "prediction": prediction}
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) 
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again later.")
 
 # To run locally (optional)
 if __name__ == "__main__":
