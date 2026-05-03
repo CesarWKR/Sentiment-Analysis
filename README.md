@@ -43,6 +43,17 @@ This strategy improves:
 
 The final model was designed to operate under realistic NLP conditions rather than idealized datasets.
 
+⚠️ Note:
+Even though the model achieved strong performance under noisy conditions, cleaner datasets and more aggressive manual curation could likely produce even higher evaluation metrics and better class separation.
+
+For optimal training performance, GPU acceleration is strongly recommended. A GPU with at least **8 GB of VRAM** is suggested for fine-tuning RoBERTa efficiently, especially when using:
+
+- mixed precision training
+- gradient accumulation
+- SWA optimization
+- larger batch sizes
+- transformer-based augmentation pipelines
+
 
 ## 🚀 Project Overview
 
@@ -1515,6 +1526,8 @@ The model repository includes:
 - vocabulary files
 
 making the model fully compatible with Hugging Face Transformers.
+
+Hugging face link: https://huggingface.co/SkyNet-DL/sentiment-roberta 
 
 
 ## 🎥 YouTube API Demo
