@@ -2,6 +2,7 @@ import logging
 import threading
 import pandas as pd
 import torch
+import time
 from src.api.fetch_reddit import fetch_reddit_posts, subreddits, posts_per_subreddit, TOTAL_LIMIT
 from src.utils.model_utils import update_latest_model, get_latest_model_path
 from src.training.fine_tune_bert import train_model
@@ -45,6 +46,66 @@ def cleaned_data_exists():
         return False
 
 
+def wait_for_data_availability(expected_total: int, max_wait_minutes=10, check_interval=10):
+    """
+    Waits in time intervals until the number of records in 'cleaned_data'
+    reaches or approaches a percentage of the expected total.
+
+    Args:
+        expected_total (int): The maximum expected number of posts (TOTAL_LIMIT).
+        max_wait_minutes (int): Maximum waiting time (in minutes).
+        check_interval (int): Interval in seconds to check the database.
+
+    Returns:
+        bool: True if an acceptable threshold is reached or time expires,
+              False if a critical failure occurs and the process should not continue.
+    """
+    start_time = time.time()
+    max_wait_seconds = max_wait_minutes * 60
+
+    # Define completion target (e.g., 95% of expected total)
+    target_threshold = expected_total * 0.95
+
+    logging.info("⏳ Starting data availability monitor...")
+    logging.info(
+        f"   Target goal: Process at least {int(target_threshold)} records in 'cleaned_data'."
+    )
+
+    while time.time() - start_time < max_wait_seconds:
+        try:
+            # Reuse DB connection to count processed records
+            engine = connect_to_db()
+            df = pd.read_sql("SELECT COUNT(*) as count FROM cleaned_data", engine)
+            current_count = df["count"].iloc[0]
+
+            logging.info(
+                f"   [Check @ {int(time.time() - start_time)}s]: "
+                f"Processed so far: {current_count}/{expected_total}. "
+                f"Required threshold: {int(target_threshold)}"
+            )
+
+            if current_count >= target_threshold:
+                logging.info(
+                    "🟢 Data processing goal reached! Enough data is available to proceed."
+                )
+                return True
+
+        except Exception as e:
+            logging.warning(
+                f"⚠️ Error while checking the database: {e}. "
+                f"Retrying in {check_interval} seconds..."
+            )
+
+        # Wait for the defined interval before checking again
+        time.sleep(check_interval)
+
+    logging.error(
+        f"🔴 TIMEOUT: Processing did not reach the target ({int(target_threshold)}) "
+        f"after {max_wait_minutes} minutes."
+    )
+    return False
+
+
 def main():
     """Main function to execute the Reddit sentiment analysis pipeline."""
     logging.info("🚀 Starting Reddit Sentiment Analysis Pipeline...")
@@ -66,8 +127,26 @@ def main():
 
     progress_bar.close()
     logging.info(f"✅ All posts fetched and sent to Kafka.")
-    consumer_thread.join(timeout=30)  # Wait for the consumer thread to finish processing
+    # consumer_thread.join(timeout=30)  # Wait for the consumer thread to finish processing
 
+    logging.warning("🛑 Pausing pipeline to wait for Kafka consumer to process data "
+        "and store results into 'cleaned_data'..."
+    )
+
+    # Wait until enough cleaned data is available in the database
+    # NOTE: threshold is lower than 95% because invalid/empty texts are filtered out
+    if not wait_for_data_availability(
+        expected_total=TOTAL_LIMIT,
+        max_wait_minutes=15,
+        check_interval=20
+    ):
+        logging.critical(
+            "❌ Data was not ready within the expected time window. "
+            "Stopping pipeline execution."
+        )
+        raise RuntimeError("❌ Data availability check failed. Pipeline cannot continue.")
+
+    logging.info("✅ Data availability confirmed. Proceeding with downstream pipeline steps.")
 
     # Step 3: Run hybrid relabeling to correct labels before training
     logging.info("🔁 Running hybrid re-labeling with a pretrained model predictions...")
@@ -137,9 +216,7 @@ def main():
 
     for text in test_samples:
         predicted_index = test_model(text) # Call the test_model function to get the predicted index
-        sentiment = test_model(text)
         sentiment = LABELS[predicted_index]  # Get the sentiment label from the index
-        results_to_store.append((text, sentiment))
 
         print(f"📝 Text: \"{text}\"")
         print(f"🔍 Prediction: {sentiment.upper()}") # Show the label instead the index
