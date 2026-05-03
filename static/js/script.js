@@ -2,7 +2,7 @@ const form = document.getElementById('sentiment-form');
 const resultDiv = document.getElementById('result');
 const textarea = document.getElementById('text');
 const charCount = document.getElementById("char-count");
-const maxLength = 256;  // Maximum length for the textarea
+const maxLength = 300;  // Maximum length for the textarea
 
 if (charCount) {   // Check if charCount exists before accessing it
   charCount.classList.add("warning"); // Add initial class for styling
@@ -131,8 +131,13 @@ form.addEventListener('submit', async (event) => {
           bars[maxKey].bar_element.classList.add('active');
         }
       }, 100);
-    } else {
-      resultDiv.innerHTML = `<strong>Error:</strong> ${data.detail}`;
+    } else if (response.status === 422) { // Handle validation errors
+         resultDiv.style.display = 'block';
+         resultDiv.innerHTML = `<strong>Error:</strong> ${data.detail}`;
+    } else { // Handle other types of errors
+    const detail = await response.text();
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `<strong>Error (${response.status}):</strong> ${detail}`;
     }
   } catch (error) {
     resultDiv.style.display = 'block';
