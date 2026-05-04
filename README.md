@@ -761,8 +761,16 @@ Two confusion matrices are generated:
 - Standard Confusion Matrix
 Shows absolute prediction counts across classes.
 
+<p align="center">
+  <img src="images/confusion_matrix.jpg" width="700"/>
+</p>
+
 - Normalized Confusion Matrix
 Shows percentage-based performance for easier interpretation.
+
+<p align="center">
+  <img src="images/confusion_matrix_normalized.png" width="700"/>
+</p>
 
 These visualizations help detect systematic classification errors and class confusion patterns.
 
